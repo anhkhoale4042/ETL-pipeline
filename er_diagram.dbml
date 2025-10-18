@@ -1,0 +1,64 @@
+Table sessions {
+  session_id uuid [pk, note: 'UUID v1~v5, primary session identifier', not null]
+  user_id varchar(256) [note: 'pseudonymized user id / HMAC', null]
+  started_at timestamptz [note: 'ISO-8601 UTC', not null]
+  ended_at timestamptz [null]
+  channel varchar(32) [note: 'one of: web,mobile,api,slack,teams', not null]
+  metadata jsonb [note: 'free-form metadata (refer to schemas/session.schema.json)']
+  Indexes {
+    (session_id) [unique]
+    (started_at)
+  }
+}
+
+Table messages {
+  message_id uuid [pk, note: 'UUID v1~v5', not null]
+  session_id uuid [ref: > sessions.session_id, note: 'foreign key', not null]
+  timestamp timestamptz [note: 'message timestamp in UTC (ISO-8601)', not null]
+  user_role varchar(16) [note: 'enum: user|bot|admin|system', not null]
+  channel varchar(32) [note: 'enum: web|mobile|api|slack|teams', not null]
+  raw_text text [note: 'original text; if contains PHI must be encrypted or omitted', null]
+  clean_text text [note: 'redacted text (should not contain PHI)', not null]
+  language varchar(2) [note: 'ISO 639-1 (en, vi, ...)', not null]
+  phi_flags jsonb [note: 'array of detected PHI types (enum). uniqueness enforcement done at app layer', not null]
+  intent varchar(100) [null]
+  entities jsonb [note: 'array of entity objects (type, value, confidence) - see schema', null]
+  urgency varchar(16) [note: 'enum: low|medium|high|critical', null]
+  confidence numeric(3,2) [null]
+  action_given boolean [null]
+  retention_policy varchar(64) [note: 'e.g., dev-30d, prod-180d', null]
+  Indexes {
+    (session_id)
+    (timestamp)
+    (session_id, timestamp)
+    (phi_flags) [type: gin]
+    (entities) [type: gin]
+  }
+}
+
+Table audit_events {
+  event_id uuid [pk, not null]
+  message_id uuid [ref: > messages.message_id, not null]
+  actor varchar(256) [note: 'service or user performing action', not null]
+  action varchar(32) [note: 'enum: ingest|redact|access|delete|export|annotate', not null]
+  timestamp timestamptz [note: 'ISO-8601 UTC', not null]
+  reason text [note: 'optional, maxlength per schema 1000', null]
+  details jsonb [note: 'optional additional info', null]
+  Indexes {
+    (message_id)
+    (timestamp)
+  }
+}
+
+Table keystore {
+  key_id uuid [pk, not null]
+  key_name varchar(128) [note: 'human-friendly alias', not null]
+  key_type varchar(32) [note: 'e.g., AES-256-GCM (alias)', not null]
+  key_material bytea [note: 'DO NOT store plaintext keys in repo; prefer external KMS/Vault; if stored, must be encrypted', null]
+  vault_reference varchar(512) [note: 'external KMS/Vault reference (preferred)', null]
+  created_by varchar(128) [null]
+  last_rotated_at timestamptz [null]
+  Indexes {
+    (key_name)
+  }
+}
