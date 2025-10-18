@@ -1,0 +1,38 @@
+{
+  "session_id": "...",
+  "user_id": "...",
+  "started_at": "...",
+  "ended_at": null,
+  "channel": "web",
+  "messages": [
+    {
+      "message_id": "...",
+      "timestamp": "...",
+      "user_role": "user",
+      "channel": "web",
+      "raw_text": "...",
+      "clean_text": "...",
+      "language": "en",
+      "intent": "appointment_request",
+      "entities": [
+        {"type": "DATE", "value": "2025-09-04", "confidence": 0.95}
+      ],
+      "urgency": "medium",
+      "confidence": 0.9,
+      "consent_given": true,
+      "retention_policy": "default",
+      "phi_flags": ["NAME"],
+      "audit_trail": [
+        {
+          "event_id": "...",
+          "action": "ingestion-service",
+          "action": "ingest",
+          "timestamp": "...",
+          "reason": null,
+          "details": {}
+        }
+      ]
+    }
+  ],
+  "metadata": {}
+}
