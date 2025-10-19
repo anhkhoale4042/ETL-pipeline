@@ -2,6 +2,7 @@
 from pathlib import Path
 import shutil
 import json
+import argparse
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
 import random
@@ -11,12 +12,10 @@ from src.etl.ingest import ingest
 DEFAULT_RAW = Path("data/raw/all_messages.jsonl")
 DEFAULT_PROCESSED = Path("data/processed")
 
-
 def partitioned_path(base: Path, ts_iso: str, session_id: str) -> Path:
     date_part = ts_iso.split("T")[0]
     y, m, d = date_part.split("-")
     return base / y / m / d / f"{session_id}.jsonl"
-
 
 def _safe_remove_path(p: Path) -> None:
     try:
@@ -28,14 +27,12 @@ def _safe_remove_path(p: Path) -> None:
     except Exception as e:
         print(json.dumps({"level": "warning", "msg": "remove_failed", "path": str(p), "error": str(e)}))
 
-
 def write_jsonl(path: Path, records: List[Dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     mode = "a"
     with path.open(mode, encoding="utf-8") as fh:
         for r in records:
             fh.write(json.dumps(r, ensure_ascii=False) + "\n")
-
 
 def run_messages(messages: List[Tuple[str, Dict[str, Any]]], raw_out_path: Path, processed_base: Path) -> None:
     raw_out = []
@@ -70,7 +67,6 @@ def run_messages(messages: List[Tuple[str, Dict[str, Any]]], raw_out_path: Path,
             print(json.dumps({"level": "error", "msg": "write_processed_failed", "error": str(e), "session_id": sid}))
 
     print(json.dumps({"level": "info", "msg": "completed_run", "count_raw": len(raw_out), "count_processed": len(processed_out), "errors": errors}))
-
 
 def gen_dummy(n: int = 50) -> List[Tuple[str, Dict[str, Any]]]:
     typos = ["teh", "recieve", "diabtes", "hipertension"]
@@ -112,3 +108,32 @@ def gen_dummy(n: int = 50) -> List[Tuple[str, Dict[str, Any]]]:
         }
         msgs.append((msg, meta))
     return msgs
+
+def main():
+    parser = argparse.ArgumentParser(description="Ingest CLI - produce raw + processed JSONL")
+    parser.add_argument("--dummy", action="store_true")
+    parser.add_argument("--n", type=int, default=50)
+    parser.add_argument("--output-raw", type=str, default=str(DEFAULT_RAW))
+    parser.add_argument("--processed-dir", type=str, default=str(DEFAULT_PROCESSED))
+    parser.add_argument("--overwrite", action="store_true")
+    args = parser.parse_args()
+    raw_path = Path(args.output_raw)
+    processed_base = Path(args.processed_dir)
+    if args.overwrite:
+        _safe_remove_path(raw_path)
+        _safe_remove_path(processed_base)
+    if args.dummy:
+        messages = gen_dummy(args.n)
+    else:
+        import sys
+        messages = []
+        for line in sys.stdin:
+            try:
+                j = json.loads(line)
+                messages.append((j.get("message"), j.get("metadata", {})))
+            except Exception:
+                continue
+    run_messages(messages, raw_path, processed_base)
+
+if __name__ == "__main__":
+    main()
